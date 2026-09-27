@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   grossVolumeL,
+  nominalVolumeL,
   substrateVolumeL,
   substrateWeightKg,
   substrateAvgThicknessCm,
@@ -118,5 +119,16 @@ describe('有效水量必须扣除底砂与素材（专门用例）', () => {
 
   it('水面面积(m²)', () => {
     expect(waterSurfaceAreaM2(tank({ l: 100, w: 50 }))).toBeCloseTo(0.5, 9);
+  });
+});
+
+describe('缸体标称容积（与 minTankL 同口径）', () => {
+  it('标称容积 = l×w×h/1000，与水面高度、底砂、素材无关', () => {
+    const t = tank({ l: 60, w: 45, h: 45, waterLevelMm: 300 });
+    expect(nominalVolumeL(t)).toBeCloseTo((60 * 45 * 45) / 1000, 6); // 121.5L
+    // 水面降低/底砂变化都不影响标称容积
+    expect(nominalVolumeL(tank({ l: 60, w: 45, h: 45, waterLevelMm: 100 }))).toBeCloseTo(121.5, 6);
+    // 与毛水量（按水面计）区分：水面未满时标称 > 毛水量
+    expect(nominalVolumeL(t)).toBeGreaterThan(grossVolumeL(t));
   });
 });

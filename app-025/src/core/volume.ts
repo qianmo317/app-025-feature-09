@@ -10,6 +10,15 @@ export function waterHeightCm(tank: Tank): number {
   return Math.max(0, Math.min(tank.h, tank.waterLevelMm / 10));
 }
 
+/**
+ * 缸体标称容积(L) = l × w × h / 1000。
+ * 与鱼种资料的 minTankL 同一口径（市售缸按标称容积标注），
+ * 兼容性「最小缸容」判定必须用它，不能用有效水量（有效水量只用于加药/密度）。
+ */
+export function nominalVolumeL(tank: Tank): number {
+  return (tank.l * tank.w * tank.h) / 1000;
+}
+
 /** 毛水量(L) = l × w × 水柱高度 / 1000（即 (h − 水面留空) 的等价实现） */
 export function grossVolumeL(tank: Tank): number {
   return (tank.l * tank.w * waterHeightCm(tank)) / 1000;
