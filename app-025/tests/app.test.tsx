@@ -175,9 +175,15 @@ describe('生物兼容页', () => {
     expect(await screen.findByTestId('issue-aggression')).toBeInTheDocument();
     expect(screen.getByTestId('issue-schooling')).toBeInTheDocument();
     expect(screen.getByTestId('issue-schooling').textContent).toContain('应激');
+    // 结论标注：依据规则 + 改法 + 补尾数建议（经验估算不阻断）
+    expect(screen.getByTestId('issue-aggression').textContent).toContain('规则1');
+    expect(screen.getByTestId('issue-schooling').textContent).toContain('规则5');
+    expect(screen.getByTestId('issue-schooling').textContent).toContain('补 3 尾');
+    expect(screen.getByTestId('issue-schooling').textContent).toContain('经验估算');
+    expect(screen.getByTestId('fix-aggression').textContent).toContain('隔离区');
   });
 
-  it('水质需求无交集 → 硬冲突显示', async () => {
+  it('水质需求无交集 → 硬冲突显示且排在最前', async () => {
     const plan = newPlan('冲突测试');
     upsertPlan(plan);
     window.location.hash = `/plan/${plan.id}/stocking`;
@@ -191,6 +197,13 @@ describe('生物兼容页', () => {
     await userEvent.click(screen.getByTestId('add-fish'));
     expect(await screen.findByTestId('issue-param-temp')).toBeInTheDocument();
     expect(screen.getByTestId('issue-param-temp').textContent).toContain('水温');
+    // 有序列表：第一条即硬冲突（水温无交集），汇总行给出三档计数
+    const first = document.querySelector('[data-testid="issues"] .issue')!;
+    expect(first.textContent).toContain('水温');
+    expect(first.textContent).toContain('#1');
+    expect(screen.getByTestId('issues-summary').textContent).toContain('硬冲突');
+    // 改法：区间无交集只能移出其一
+    expect(screen.getByTestId('fix-param-temp').textContent).toContain('移出');
   });
 
   it('密度超标 → 出现密度卡与超标提示（不阻断）', async () => {

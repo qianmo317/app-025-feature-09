@@ -84,10 +84,10 @@ App.tsx: useSyncExternalStore(subscribePlans, getPlans) ──▶ 触发重渲�
 
 | 模块 | 公开函数 | 说明 |
 |---|---|---|
-| volume.ts | `waterHeightCm` `grossVolumeL` `substrateAvgThicknessCm` `substrateVolumeL` `substrateWeightKg` `hardscapeDisplacementL` `effectiveVolumeL` `waterSurfaceAreaM2` | 毛水量 = l×w×水柱高度/1000；有效水量 = 毛水量 − 底砂体积 − 素材排水（必须扣除） |
+| volume.ts | `waterHeightCm` `grossVolumeL` `substrateAvgThicknessCm` `substrateVolumeL` `substrateWeightKg` `hardscapeDisplacementL` `effectiveVolumeL` `waterSurfaceAreaM2` `nominalVolumeL` | 毛水量 = l×w×水柱高度/1000；有效水量 = 毛水量 − 底砂体积 − 素材排水（必须扣除）；标称容积 = l×w×h/1000（minTankL 的对比口径） |
 | water.ts | `weeklyWaterChangePct` `roMixForGh` `saltForGh` `co2FromPhKh` `targetPhForCo2` `co2BubblesPerSec` `phKhCo2Table` `co2Lookup` | RO 兑水与矿物盐互斥输出；CO₂ ≈ 3×KH×10^(7−pH)；泡/秒估算强制 `estimated` 标注 |
 | equipment.ts | `classifyLightByLumen` `recommendLumens` `recommendWatts` `checkLight` `filterFlowLph` `heaterWatts` `suggestGlassMm` `equipmentSummary` | 光照三档判定 + 水草需求交叉校验；过滤 5~8 倍；加热 W = L×ΔT×0.12 |
-| compatibility.ts | `rangesOverlap` `checkPair` `checkSchooling` `checkTankSize` `checkDensity` `checkStocking` | 逐对 5 条规则 + 附加规则，输出 `StockingIssue[]`（severity/conflict·warning·info + code + message） |
+| compatibility.ts | `rangesOverlap` `checkPair` `checkSchooling` `checkTankSize` `checkDensity` `densityThresholdCmPerL` `mergeFindings` `checkStocking` | 逐对 5 条规则 + 附加规则产出 `Finding`（规则标注/涉及鱼种/改法/补减尾数）；`mergeFindings` 按鱼对/单鱼/整缸合并保留全部原因；`checkStocking` 输出按处理顺序排序的 `StockingIssue[]`；缸容对比标称容积，密度与群游余量用有效水量 |
 | bom.ts | `buildBom` | 汇总底砂/水草/硬景观/生物/设备行 + 养护参数卡 |
 
 可配参数集中以常量或数据表存在（`GH_SALTS`、`LIGHT_LUMEN_PER_M2`、`WL_RANGE`、底砂密度表、硬景观排水系数），便于调参与测试边界。
@@ -104,7 +104,7 @@ App.tsx: useSyncExternalStore(subscribePlans, getPlans) ──▶ 触发重渲�
 
 | 测试层 | 目标 | 对应 |
 |---|---|---|
-| 单元（Vitest） | `core/` 全部纯函数，含 50 组随机水量、20 组 GH、24 组兼容性验收用例 | `tests/*.test.ts` |
+| 单元（Vitest） | `core/` 全部纯函数，含 50 组随机水量、20 组 GH、39 组兼容性验收用例 | `tests/*.test.ts` |
 | 组件（Testing Library，与单元同套件运行） | 页面交互路径（新建→编辑→水质→兼容→清单→导出） | `tests/app.test.tsx` |
 | E2E（Playwright） | 构建产物/Docker 容器上的全链路验收 | `e2e/planner.spec.ts` |
 
@@ -117,5 +117,7 @@ App.tsx: useSyncExternalStore(subscribePlans, getPlans) ──▶ 触发重渲�
 | 用 hash 路由而非 history 路由 | 纯前端静态托管（nginx/Docker）无需服务端配置即可刷新/直达；零依赖 |
 | 状态集中一个 store，而非每页独立 state | 方案数据跨 5 个页面共享（缸体改动要实时反映到水质/兼容/清单页），且用户要求状态逻辑集中、组件只做展示 |
 | 有效水量强制扣除底砂与素材 | 商家/新手按毛水量配药施肥剂量偏高的真实痛点，验收明确要求专门用例 |
+| 缸容对比用标称容积、密度用有效水量 | minTankL 是商家标注口径（l×w×h/1000），拿有效水量对比会让同一套鱼随底砂/素材多少得出不同结论；而生物负载（密度、群游余量）只与实际水体有关，两个口径各司其职 |
+| 混养结论合并 + 排序 + 改法 | 五条规则各出各的结论会让同一对鱼冒出多条、看不出先改哪个；按鱼对/单鱼/整缸合并保留全部原因，标注依据规则与消除改法，按 硬冲突→警告→建议+规则固定次序 输出处理顺序 |
 | 估算类输出统一 `Estimate` 类型 | 水族经验值差异大，必须让用户知道哪些是精确公式、哪些需要实测校验（如 CO₂ 用监测液） |
 | 素材画布 SVG 而非 Canvas 2D | 素材数量级小（几十个节点），SVG 可直接绑定 DOM 事件（拖拽/选中），无需手写命中检测，且导出平面图可复用同一坐标模型 |

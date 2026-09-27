@@ -111,6 +111,12 @@ test.describe('水族造景规划器 E2E', () => {
     await expect(page.getByTestId('issue-param-temp').first()).toContainText('水温');
     await expect(page.getByTestId('issue-aggression').first()).toBeVisible();
     await expect(page.getByTestId('issue-schooling').first()).toContainText('应激');
+    // 结论按处理顺序排列：第一条为硬冲突（水温无交集），标注依据规则与改法
+    const firstIssue = page.locator('[data-testid="issues"] .issue').first();
+    await expect(firstIssue).toContainText('硬冲突');
+    await expect(firstIssue).toContainText('规则3');
+    await expect(firstIssue).toContainText('改法');
+    await expect(page.getByTestId('issues-summary')).toContainText('硬冲突');
     // 密度卡（经验估算标注，非阻断）
     await expect(page.getByTestId('density-card')).toContainText('经验估算');
 

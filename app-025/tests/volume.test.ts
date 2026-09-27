@@ -8,6 +8,7 @@ import {
   effectiveVolumeL,
   waterHeightCm,
   waterSurfaceAreaM2,
+  nominalVolumeL,
 } from '../src/core/volume';
 import type { Substrate, Tank, Item } from '../src/core/types';
 
@@ -118,5 +119,14 @@ describe('有效水量必须扣除底砂与素材（专门用例）', () => {
 
   it('水面面积(m²)', () => {
     expect(waterSurfaceAreaM2(tank({ l: 100, w: 50 }))).toBeCloseTo(0.5, 9);
+  });
+
+  it('标称容积 = l×w×h/1000，与水面高度/底砂无关（minTankL 的对比口径）', () => {
+    // 手工核算：60×45×45/1000 = 121.5L
+    expect(nominalVolumeL(tank())).toBeCloseTo((60 * 45 * 45) / 1000, 9);
+    // 水面降低、底砂加厚都不改变标称容积
+    const t = tank({ waterLevelMm: 100 });
+    expect(nominalVolumeL(t)).toBeCloseTo(nominalVolumeL(tank()), 9);
+    expect(nominalVolumeL(t)).toBeGreaterThan(effectiveVolumeL(t, sub(), []));
   });
 });

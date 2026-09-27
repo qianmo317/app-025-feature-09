@@ -16,7 +16,7 @@ npm run dev          # 开发服务器 http://localhost:5173（LAN 可访问）
 npm run build        # 类型检查(tsc -b) + 生产构建 → dist/
 npm run preview      # 预览构建产物 http://localhost:4173
 
-npm test             # 单元 + 组件测试（Vitest，139 用例）
+npm test             # 单元 + 组件测试（Vitest，155 用例）
 npm run test:watch   # 监听模式
 npm run e2e          # E2E（自动起 vite preview）
 npm run e2e:headed   # 有头模式（观察浏览器操作）
@@ -50,7 +50,7 @@ npm run e2e:headed   # 有头模式（观察浏览器操作）
   "schooling": true, "minSchool": 6, "singleMale": false }
 ```
 
-注意：`tempRange/ghRange/phRange` 决定兼容性硬冲突判定（无交集即冲突），录入前请核对可靠来源；`minTankL` 是攻击性降级判定（缸体 ≥ minTankL×1.5）与"缸体过小"提示的依据。
+注意：`tempRange/ghRange/phRange` 决定兼容性硬冲突判定（无交集即冲突），录入前请核对可靠来源；`minTankL` 是**缸体标称容积口径**（l×w×h/1000，见 `nominalVolumeL`），是攻击性降级判定（标称 ≥ minTankL×1.5）与"缸体过小"提示的依据，切勿与有效水量混用（有效水量只用于密度与群游余量估算）。
 
 ### 新增硬景观（hardscape.json）
 
@@ -86,7 +86,7 @@ npm run e2e:headed   # 有头模式（观察浏览器操作）
 
 ```bash
 npx tsc -b        # ① 类型零错误
-npm test          # ② 139 用例全绿
+npm test          # ② 155 用例全绿
 npm run build     # ③ 构建通过
 npm run e2e       # ④ E2E 通过（改动画布/交互/路由时必跑）
 ```

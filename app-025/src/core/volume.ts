@@ -57,3 +57,12 @@ export function effectiveVolumeL(tank: Tank, sub: Substrate, items: Item[]): num
 export function waterSurfaceAreaM2(tank: Tank): number {
   return (tank.l * tank.w) / 10000;
 }
+
+/**
+ * 缸体标称容积(L) = l × w × h / 1000（商家标注口径，与水面高度/底砂/素材无关）。
+ * 鱼种 minTankL 说的是这个口径：混养检查里"缸体够不够"必须用它对比，
+ * 不能拿有效水量对比，否则同一套鱼会随底砂/素材多少得出不同结论。
+ */
+export function nominalVolumeL(tank: Tank): number {
+  return (tank.l * tank.w * tank.h) / 1000;
+}

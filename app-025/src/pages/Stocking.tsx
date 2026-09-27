@@ -3,16 +3,13 @@ import type { Plan } from '../core/types';
 import { FISHES, fishById } from '../data/db';
 import { updatePlan } from '../state/plans';
 import { Link } from '../router';
-import { effectiveVolumeL } from '../core/volume';
-import {
-  checkStocking,
-  checkDensity,
-  type StockingIssue,
-} from '../core/compatibility';
+import { effectiveVolumeL, nominalVolumeL } from '../core/volume';
+import { checkStocking, checkDensity } from '../core/compatibility';
 
 export default function Stocking({ plan }: { plan: Plan }) {
   const [pickId, setPickId] = useState('');
   const eff = effectiveVolumeL(plan.tank, plan.substrate, plan.items);
+  const nominal = nominalVolumeL(plan.tank);
   const hasPlants = plan.items.some((i) => i.kind === 'plant');
 
   const entries = useMemo(
@@ -23,9 +20,10 @@ export default function Stocking({ plan }: { plan: Plan }) {
     [plan.fishes],
   );
 
+  // 结论已合并（同一对鱼/同一尾鱼一条）并按处理顺序排序
   const issues = useMemo(
-    () => checkStocking(entries, { tankLitres: eff, hasPlants }),
-    [entries, eff, hasPlants],
+    () => checkStocking(entries, { nominalL: nominal, effectiveL: eff, hasPlants }),
+    [entries, nominal, eff, hasPlants],
   );
   const density = checkDensity(entries, eff);
 
@@ -45,9 +43,11 @@ export default function Stocking({ plan }: { plan: Plan }) {
     updatePlan(plan.id, { fishes: next });
   }
 
-  const conflicts = issues.filter((i) => i.severity === 'conflict');
-  const warnings = issues.filter((i) => i.severity === 'warning');
-  const infos = issues.filter((i) => i.severity === 'info');
+  const nameOf = (id: string) => fishById(id)?.name ?? id;
+  const sevLabel = { conflict: '硬冲突', warning: '警告', info: '建议' } as const;
+  const nConflict = issues.filter((i) => i.severity === 'conflict').length;
+  const nWarning = issues.filter((i) => i.severity === 'warning').length;
+  const nInfo = issues.filter((i) => i.severity === 'info').length;
 
   return (
     <div className="page" data-testid="stocking-page">
@@ -64,7 +64,10 @@ export default function Stocking({ plan }: { plan: Plan }) {
         </Link>
       </nav>
       <h1>生物清单与兼容性检查（{plan.name}）</h1>
-      <p className="muted">有效水量 {eff.toFixed(1)}L · {hasPlants ? '草缸' : '无植物'}</p>
+      <p className="muted">
+        标称容积 {nominal.toFixed(0)}L（对比鱼种最小缸容） · 有效水量 {eff.toFixed(1)}L（密度与群游余量估算） ·{' '}
+        {hasPlants ? '草缸' : '无植物'}
+      </p>
 
       <div className="row">
         <select data-testid="fish-select" value={pickId} onChange={(e) => setPickId(e.target.value)}>
@@ -140,37 +143,66 @@ export default function Stocking({ plan }: { plan: Plan }) {
             <b>{density.cmPerL}cm/L</b>（经验阈值 {density.threshold}cm/L）
           </p>
           <p className={density.over ? 'bad' : 'ok'}>
-            {density.over ? '⚠ 超出经验密度，建议减少数量或升级过滤' : '✓ 在经验范围内'}
+            {density.over
+              ? `⚠ 超出经验密度：建议减少约 ${density.suggestRemove} 尾，或换更大缸/强化过滤（不阻断）`
+              : '✓ 在经验范围内'}
           </p>
           <p className="muted small">{density.note}</p>
         </section>
       )}
 
-      <h3>检查结果</h3>
+      <h3>检查结果（按建议处理顺序排列）</h3>
       <div data-testid="issues">
         {issues.length === 0 && entries.length > 0 && (
           <div className="okbox" data-testid="no-issues">
-            ✓ 未发现混养冲突（不含密度建议）。
+            ✓ 未发现混养冲突，密度也在经验范围内。
           </div>
         )}
-        {[
-          ['硬冲突', conflicts, 'issue-conflict'],
-          ['警告', warnings, 'issue-warning'],
-          ['建议', infos, 'issue-info'],
-        ].map(([label, list, cls]) =>
-          (list as StockingIssue[]).length > 0 ? (
-            <div key={label as string}>
-              <h4>
-                {label as string}（{(list as StockingIssue[]).length}）
-              </h4>
-              {(list as StockingIssue[]).map((iss, i) => (
-                <div key={i} className={`issue ${cls as string}`} data-testid={`issue-${iss.code}`}>
-                  {iss.severity === 'conflict' ? '✖' : iss.severity === 'warning' ? '⚠' : 'ℹ'} {iss.message}
-                </div>
+        {issues.length > 0 && (
+          <p className="muted small" data-testid="issues-summary">
+            硬冲突 {nConflict} · 警告 {nWarning} · 建议 {nInfo} —— 同一对鱼/同一尾鱼的多条原因已合并；
+            按序号处理，每条的「改法」生效后该结论即消失。
+          </p>
+        )}
+        {issues.map((iss, idx) => (
+          <div key={iss.key} className={`issue issue-${iss.severity}`} data-testid={`issue-${iss.code}`}>
+            <div className="issue-head">
+              <span className="issue-rank">#{idx + 1}</span>
+              <span className={`issue-sev sev-${iss.severity}`}>{sevLabel[iss.severity]}</span>
+              <span className="issue-fish">
+                {iss.fishIds.length > 0 ? iss.fishIds.map((id) => `「${nameOf(id)}」`).join(' × ') : '整缸'}
+              </span>
+              {iss.reasons.map((r) => (
+                <span key={r.code} className="tag">
+                  {r.rule}
+                </span>
               ))}
             </div>
-          ) : null,
-        )}
+            <ul className="issue-reasons">
+              {iss.reasons.map((r, i) => (
+                <li key={i}>{r.message}</li>
+              ))}
+            </ul>
+            <div className="issue-fix" data-testid={`fix-${iss.code}`}>
+              改法：
+              <ol>
+                {iss.fixes.map((f, i) => (
+                  <li key={i}>{f}</li>
+                ))}
+              </ol>
+            </div>
+            {iss.countDeltas.length > 0 && (
+              <div className="issue-delta">
+                {iss.countDeltas.map((d, i) => (
+                  <span key={i} className="tag">
+                    「{nameOf(d.fishId)}」{d.delta > 0 ? `补 ${d.delta}` : `减 ${-d.delta}`} 尾
+                  </span>
+                ))}
+                <span className="muted small">（数量建议为经验估算，不阻断）</span>
+              </div>
+            )}
+          </div>
+        ))}
         {entries.length === 0 && <p className="muted">加入鱼种后自动逐对检查（攻击性、体长差、水质区间、啃草、群游）。</p>}
       </div>
     </div>
